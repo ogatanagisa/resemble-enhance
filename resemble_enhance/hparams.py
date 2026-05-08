@@ -1,6 +1,7 @@
 import logging
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from omegaconf import OmegaConf
 from rich.console import Console
@@ -90,8 +91,14 @@ class HParams:
     @classmethod
     def from_yaml(cls, path: Path) -> "HParams":
         logger.info(f"Reading hparams from {path}")
+        yaml_path = path
+        text = path.read_text()
+        if "pathlib.PosixPath" in text:
+            with NamedTemporaryFile("w", suffix=".yaml", delete=False) as tmp:
+                tmp.write(text.replace("pathlib.PosixPath", "pathlib.WindowsPath"))
+                yaml_path = Path(tmp.name)
         # First merge to fix types (e.g., str -> Path)
-        return cls(**dict(OmegaConf.merge(cls(), OmegaConf.load(path))))
+        return cls(**dict(OmegaConf.merge(cls(), OmegaConf.load(yaml_path))))
 
     def save_if_not_exists(self, run_dir: Path):
         path = run_dir / "hparams.yaml"

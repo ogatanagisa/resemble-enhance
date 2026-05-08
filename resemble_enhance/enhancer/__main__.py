@@ -3,8 +3,8 @@ import random
 import time
 from pathlib import Path
 
+import soundfile
 import torch
-import torchaudio
 from tqdm import tqdm
 
 from .inference import denoise, enhance
@@ -97,8 +97,8 @@ def main():
         if args.parallel_mode and out_path.exists():
             continue
         pbar.set_description(f"Processing {out_path}")
-        dwav, sr = torchaudio.load(path)
-        dwav = dwav.mean(0)
+        dwav, sr = soundfile.read(path, dtype="float32", always_2d=True)
+        dwav = torch.from_numpy(dwav).mean(1)
         if args.denoise_only:
             hwav, sr = denoise(
                 dwav=dwav,
@@ -118,11 +118,10 @@ def main():
                 run_dir=run_dir,
             )
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        torchaudio.save(out_path, hwav[None], sr)
+        soundfile.write(out_path, hwav.detach().cpu().numpy(), sr)
 
-    # Cool emoji effect saying the job is done
     elapsed_time = time.perf_counter() - start_time
-    print(f"🌟 Enhancement done! {len(paths)} files processed in {elapsed_time:.2f}s")
+    print(f"Enhancement done! {len(paths)} files processed in {elapsed_time:.2f}s")
 
 
 if __name__ == "__main__":

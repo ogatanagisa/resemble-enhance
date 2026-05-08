@@ -3,10 +3,15 @@ import socket
 from functools import cache, partial, wraps
 from typing import Callable
 
-import deepspeed
 import torch
-from deepspeed.accelerator import get_accelerator
 from torch.distributed import broadcast_object_list
+
+try:
+    import deepspeed
+    from deepspeed.accelerator import get_accelerator
+except ImportError:
+    deepspeed = None
+    get_accelerator = None
 
 
 def get_free_port():
@@ -30,6 +35,8 @@ def fix_unset_envs():
 
 @cache
 def init_distributed():
+    if deepspeed is None or get_accelerator is None:
+        raise RuntimeError("deepspeed is required for distributed training")
     fix_unset_envs()
     deepspeed.init_distributed(get_accelerator().communication_backend_name())
     torch.cuda.set_device(local_rank())
